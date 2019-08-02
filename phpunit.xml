@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit backupGlobals="false"
+         backupStaticAttributes="false"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         convertErrorsToExceptions="true"
+         convertNoticesToExceptions="true"
+         convertWarningsToExceptions="true"
+         processIsolation="false"
+         stopOnFailure="true">
+    <testsuites>
+        <testsuite name="Feature">
+            <directory suffix="Test.php">./tests/Feature</directory>
+        </testsuite>
+
+        <testsuite name="Traders">
+            <directory suffix="Test.php">./tests/Traders</directory>
+        </testsuite>
+
+        <testsuite name="Jobs">
+            <directory suffix="Test.php">./tests/Jobs</directory>
+        </testsuite>
+
+        <testsuite name="Listeners">
+            <directory suffix="Test.php">./tests/Listeners</directory>
+        </testsuite>
+
+        <testsuite name="ExchangeMarkets">
+            <directory suffix="Test.php">./tests/ExchangeMarkets</directory>
+        </testsuite>
+
+        <testsuite name="Unit">
+            <directory suffix="Test.php">./tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <filter>
+        <whitelist processUncoveredFilesFromWhitelist="true">
+            <directory suffix=".php">./app</directory>
+        </whitelist>
+    </filter>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_DRIVER" value="sync"/>
+        <env name="DB_DATABASE" value="av_crypto_local_test"/>
+    </php>
+</phpunit>
