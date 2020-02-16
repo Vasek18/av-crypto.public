@@ -35,6 +35,8 @@ Route::group(
 
                 Route::get('past-analysis', 'Admin\PastAnalysisController@index');
                 Route::get('past-analysis/get-pair-info', 'Admin\PastAnalysisController@getPairInfo');
+
+                Route::get('observations', 'Admin\ObservationsController@index');
             }
         );
     }

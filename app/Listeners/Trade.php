@@ -38,7 +38,7 @@ class Trade
         $trader = new $traderClass($event->currencyPairCode);
         $decision = $trader->getDecision($event->rate);
         if ($decision) {
-            $this->triggerBaskets($event->currencyPairID, $event->serverTimestamp, $decision);
+            $this->triggerBaskets($event->currencyPairID, $event->rate->timestamp, $decision);
             $this->saveDecisionInDB($event->currencyPairID, $decision);
         }
     }

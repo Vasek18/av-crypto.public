@@ -7,7 +7,6 @@ use App\Events\CurrencyPairRateChanged;
 use App\Listeners\CalculateCurrencyPairMetrics;
 use App\Trading\CurrencyPairRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class CalculateCurrencyPairMetricsAveragesTest extends TestCase
@@ -16,19 +15,6 @@ class CalculateCurrencyPairMetricsAveragesTest extends TestCase
 
     protected $preserveGlobalState      = false;
     protected $runTestInSeparateProcess = true;
-
-    public $hourIntervals = [1, 2, 4, 6, 8, 12, 24];
-    public $currencyPair;
-
-    public function setUp()
-    {
-        parent::setUp();
-
-        $this->currencyPair = $this->getCurrencyPair();
-
-        // чистим редис перед каждым тестом
-        Redis::flushall();
-    }
 
     /**
      * Проверка, что средние считаются правильно через полный запуск слушателя
@@ -42,68 +28,111 @@ class CalculateCurrencyPairMetricsAveragesTest extends TestCase
         // набиваем бд тестовыми данными
         $this->seed('TestExchangeMarketsDayRatesSeeder');
 
-        // вспомогательная информация
-        $timestampNow = date('U');
-        $rate = CurrencyPairRate::save($this->currencyPair->code, 1, 1, $timestampNow);
-
         // запускаем расчёт метрик
         $listener = new CalculateCurrencyPairMetrics();
         $event = new CurrencyPairRateChanged(
-            $this->currencyPair->id,
-            $this->currencyPair->code,
-            $rate,
-            $timestampNow
+            $this->testCurrencyPair->id,
+            $this->testCurrencyPair->code,
+            CurrencyPairRate::save($this->testCurrencyPair->code, 1, 1, $this->timestampNow)
         );
         $listener->handle($event);
 
-        foreach ($this->hourIntervals as $hourInterval) {
+        // проверяем правильность расчётов
+        foreach (Average::$hourIntervals as $hourInterval) {
             $ratesCollection = collect(
-                CurrencyPairRate::getForPeriod($this->currencyPair->code, $hourInterval * MINUTES_IN_HOUR)
+                CurrencyPairRate::getForPeriod($this->testCurrencyPair->code, $hourInterval * MINUTES_IN_HOUR)
             );  // тут нельзя делать фильтрацию по диапозону timestamp, так как seeder отталкивается от суток, а не от текущего времени
 
             $buyMetricValue = Average::getLast(
-                $this->currencyPair->code,
+                $this->testCurrencyPair->code,
                 'buy',
                 $hourInterval
             );
             // проверяем правильность расчётов
             $this->assertEquals($ratesCollection->avg('buy_price'), $buyMetricValue['value']);
             // проверяем, что время метрик совпадает со временем котировок
-            $this->assertEquals($timestampNow, $buyMetricValue['timestamp']);
+            $this->assertEquals($this->timestampNow, $buyMetricValue['timestamp']);
 
             $sellMetricValue = Average::getLast(
-                $this->currencyPair->code,
+                $this->testCurrencyPair->code,
                 'sell',
                 $hourInterval
             );
             // проверяем правильность расчтов
             $this->assertEquals($ratesCollection->avg('sell_price'), $sellMetricValue['value']);
             // проверяем, что время метрик совпадает со временем котировок
-            $this->assertEquals($timestampNow, $sellMetricValue['timestamp']);
+            $this->assertEquals($this->timestampNow, $sellMetricValue['timestamp']);
         }
     }
 
     /**
+     * @dataProvider periodGetterTestProvider
      * @test
-     *
+     * @param $interval
+     * @param $type
      */
-    public function periodGetterTest()
+    public function periodGetterTest($interval, $type)
     {
         $testValuesCount = 10;
-        $oldestMetricTimestamp = date('U') - ($testValuesCount - 1) * SECONDS_IN_MINUTE;
+        $oldestMetricTimestamp = $this->timestampNow - ($testValuesCount - 1) * SECONDS_IN_MINUTE;
 
         // заполняем
-        for ($i = 0; $i < $testValuesCount; $i++) {
-            $timestamp = $oldestMetricTimestamp + $i * SECONDS_IN_MINUTE;
-            Average::store($this->currencyPair->code, 'buy', 1, $timestamp, $i);
-            Average::store($this->currencyPair->code, 'sell', 1, $timestamp, $i);
-            Average::store($this->currencyPair->code, 'buy', 2, $timestamp, $i);
-            Average::store($this->currencyPair->code, 'sell', 2, $timestamp, $i);
+        for ($minutes = 0; $minutes < $testValuesCount; $minutes++) {
+            $timestamp = $oldestMetricTimestamp + $minutes * SECONDS_IN_MINUTE;
+            Average::store($this->testCurrencyPair->code, $type, $interval, $timestamp, $minutes);
         }
 
-        $this->assertEquals(4, count(Average::getForPeriod($this->currencyPair->code, 'buy', 1, 4)));
-        $this->assertEquals(3, count(Average::getForPeriod($this->currencyPair->code, 'sell', 1, 3)));
-        $this->assertEquals(5, count(Average::getForPeriod($this->currencyPair->code, 'buy', 2, 5)));
-        $this->assertEquals(7, count(Average::getForPeriod($this->currencyPair->code, 'sell', 2, 7)));
+        for ($minutes = 3; $minutes < 7; $minutes++) {
+            $this->assertEquals(
+                $minutes,
+                count(Average::getForPeriod($this->testCurrencyPair->code, $type, $interval, $minutes))
+            );
+        }
+    }
+
+    public function periodGetterTestProvider()
+    {
+        return [
+            [1, 'buy'],
+            [1, 'sell'],
+            [2, 'buy'],
+            [2, 'sell'],
+        ];
+    }
+
+    /**
+     * @test
+     */
+    public function ifTimestampIsNotMultipleTo60ClearingDoesntFail()
+    {
+        $bigRandomNumberOfMinutes = 100;
+        $notMultipleTo60Number = 70; // в секундах всё равно должно быть больше минуты, иначе ни одно значение не удалится
+
+        // сохраняем 2 значения метрики
+        Average::store($this->testCurrencyPair->code, 'buy', 1, $this->timestampNow - SECONDS_IN_MINUTE, 100);
+        Average::store($this->testCurrencyPair->code, 'buy', 1, $this->timestampNow, 100);
+
+        // должно удалиться лишь одно значение
+        Average::clearOlderThan($this->testCurrencyPair->code, $this->timestampNow - $notMultipleTo60Number);
+
+        $this->assertEquals(
+            1,
+            count(Average::getForPeriod($this->testCurrencyPair->code, 'buy', 1, $bigRandomNumberOfMinutes))
+        );
+    }
+
+    /**
+     * @test
+     */
+    public function itCanDeleteLastElement()
+    {
+        Average::store($this->testCurrencyPair->code, 'buy', 1, $this->timestampNow, 100);
+
+        Average::clearOlderThan($this->testCurrencyPair->code, $this->timestampNow);
+
+        $this->assertEquals(
+            0,
+            count(Average::getForPeriod($this->testCurrencyPair->code, 'buy', 1, SECONDS_IN_MINUTE + SECONDS_IN_MINUTE))
+        );
     }
 }

@@ -3,6 +3,7 @@
 namespace App\ExchangeMarkets;
 
 use App\Trading\Order;
+use Illuminate\Support\Facades\Cache;
 
 abstract class ExchangeMarket
 {
@@ -63,7 +64,14 @@ abstract class ExchangeMarket
             return intval($this->idInDB);
         }
 
-        $exm = \App\Models\ExchangeMarket::where('code', $this->getCode())->first(); // todo кеширование
+        $code = $this->getCode();
+        $exm = Cache::remember(
+            'exchange_market_'.$code,
+            now()->addDay(),
+            function () use ($code) {
+                return \App\Models\ExchangeMarket::where('code', $code)->first();
+            }
+        );
 
         // сразу же присваиваем объекту в целяз кеширования
         $this->idInDB = $exm->id;

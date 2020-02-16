@@ -9,7 +9,6 @@ use App\Jobs\UpdateOrderBooksInfo;
 use App\Models\ExchangeMarket;
 use App\Models\ExchangeMarketCurrencyPair;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class UpdateOrderBooksInfoTest extends TestCase
@@ -22,14 +21,6 @@ class UpdateOrderBooksInfoTest extends TestCase
     public $userAccount;
     public $exchangeMarket;
 
-    public function setUp()
-    {
-        parent::setUp();
-
-        // чистим редис перед каждым тестом
-        Redis::flushall();
-    }
-
     /**
      * @test
      *
@@ -37,43 +28,37 @@ class UpdateOrderBooksInfoTest extends TestCase
      */
     public function itCalculatesPairsMetrics()
     {
-        // сейчас собираем эти метрики только для exmo. Проверим, что у этих пар создались метрики
+        // сейчас собираем эти метрики только для exmo, поэтому проверяем только для него
         $exmoExchangeMarket = ExchangeMarket::where('code', 'exmo')->first();
-        $exmoCurrencyPairs = ExchangeMarketCurrencyPair
-            ::where('exchange_market_id', $exmoExchangeMarket->id)
-            ->active()
-            ->get();
+        $pair = ExchangeMarketCurrencyPair::create( // раньше валюты exmo создавалась через миграцию, но это лишнее, поэтому создаём одну валюту специально для этого теста
+            array(
+                'currency_1_code'       => 'BTC',
+                'currency_2_code'       => 'USD',
+                'currency_1_min_amount' => 0.001,
+                'currency_1_max_amount' => 100,
+                'min_price'             => 1,
+                'max_price'             => 30000,
+                'currency_2_max_amount' => 200000,
+                'currency_2_min_amount' => 1,
+                'commission_percents'   => 0.2,
+                'exchange_market_id'    => $exmoExchangeMarket->id,
+                'active'                => true,
+            )
+        );
 
-        foreach ($exmoCurrencyPairs as $pair) {
-            $this->assertEquals(
-                0,
-                SellQuantity::count($pair->code)
-            );
-            $this->assertEquals(
-                0,
-                BuyAmount::count($pair->code)
-            );
-            $this->assertEquals(
-                0,
-                Spread::count($pair->code)
-            );
-        }
+        UpdateOrderBooksInfo::dispatchNow(); // todo внешние запросы тут надо мокать
 
-        UpdateOrderBooksInfo::dispatchNow();
-
-        foreach ($exmoCurrencyPairs as $pair) {
-            $this->assertEquals(
-                1,
-                SellQuantity::count($pair->code)
-            );
-            $this->assertEquals(
-                1,
-                BuyAmount::count($pair->code)
-            );
-            $this->assertEquals(
-                1,
-                Spread::count($pair->code)
-            );
-        }
+        $this->assertEquals(
+            1,
+            SellQuantity::count($pair->code)
+        );
+        $this->assertEquals(
+            1,
+            BuyAmount::count($pair->code)
+        );
+        $this->assertEquals(
+            1,
+            Spread::count($pair->code)
+        );
     }
 }

@@ -5,7 +5,6 @@ namespace Tests\Listeners;
 use App\CurrencyPairsMetrics\Average;
 use App\Jobs\UpdateCurrencyRates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class CalculateCurrencyPairMetricsTest extends TestCase
@@ -14,14 +13,6 @@ class CalculateCurrencyPairMetricsTest extends TestCase
 
     protected $preserveGlobalState      = false;
     protected $runTestInSeparateProcess = true;
-
-    public function setUp()
-    {
-        parent::setUp();
-
-        // чистим редис перед каждым тестом
-        Redis::flushall();
-    }
 
     /**
      * Как минимум средние сохраняются в редис
@@ -32,7 +23,7 @@ class CalculateCurrencyPairMetricsTest extends TestCase
      */
     public function itSavesMetrics()
     {
-        $this->assertEquals(0, count(Average::getForPeriod('test.BTC.USD', 'buy', 1, 10)));
+        $this->assertEquals(0, count(Average::getForPeriod($this->testCurrencyPair->code, 'buy', 1, 10)));
 
         // набиваем бд тестовыми данными
         $this->seed('TestExchangeMarketsDayRatesSeeder');
@@ -41,7 +32,7 @@ class CalculateCurrencyPairMetricsTest extends TestCase
         UpdateCurrencyRates::dispatchNow();
 
         // проверяем наличие
-        $this->assertGreaterThan(0, count(Average::getForPeriod('test.BTC.USD', 'buy', 1, 10)));
+        $this->assertGreaterThan(0, count(Average::getForPeriod($this->testCurrencyPair->code, 'buy', 1, 10)));
 
     }
 
@@ -52,13 +43,13 @@ class CalculateCurrencyPairMetricsTest extends TestCase
      */
     public function itDoesntSaveMetricsIfThereAreNotEnoughRates()
     {
-        $this->assertEquals(0, count(Average::getForPeriod('test.BTC.USD', 'buy', 1, 10)));
+        $this->assertEquals(0, count(Average::getForPeriod($this->testCurrencyPair->code, 'buy', 1, 10)));
 
-        // запускаем все расчёты
+        // запускаем все расчёты + тут создастся хотя бы одна котировка
         UpdateCurrencyRates::dispatchNow();
 
         // проверяем наличие в кеше
-        $this->assertEquals(0, count(Average::getForPeriod('test.BTC.USD', 'buy', 1, 10)));
+        $this->assertEquals(0, count(Average::getForPeriod($this->testCurrencyPair->code, 'buy', 1, 10)));
 
     }
 }

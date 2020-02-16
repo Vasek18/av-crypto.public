@@ -8,16 +8,15 @@ use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvi
 
 class EventServiceProvider extends ServiceProvider
 {
-
-    /**
-     * The event listener mappings for the application.
-     *
-     * @var array
-     */
     protected $listen = [
         'App\Events\CurrencyPairRateChanged' => [
             'App\Listeners\CalculateCurrencyPairMetrics',
+            'App\Listeners\FireCurrencyPairEvents',
+            // вызывается здесь, потому что события отталкиваются от цены и времени котировки
             'App\Listeners\Trade',
+        ],
+        'App\Events\CurrencyPairEventFired'  => [
+            'App\Listeners\OnCurrencyPairEventFired',
         ],
         Registered::class                    => [
             SendEmailVerificationNotification::class,

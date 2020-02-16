@@ -81,6 +81,11 @@
                                     >
                                         Анализ
                                     </a>
+                                    <a class="dropdown-item"
+                                       href="{{ action('Admin\ObservationsController@index') }}"
+                                    >
+                                        Наблюдения
+                                    </a>
                                 @endif
                                 <a class="dropdown-item"
                                    href="{{ route('logout') }}"

@@ -6,9 +6,15 @@ use App\Trading\CurrencyPairRate;
 
 class Average extends AbstractCurrencyPairsMetric implements Calculatable
 {
-    public static $hourIntervals = [1, 2, 4, 6, 8, 12, 24];
+    public static $hourIntervals = [0.5, 1, 2, 4, 6, 8, 12, 24];
 
-    public static function calculate($currencyPairID, $currencyPairCode, $currentTimestamp = '')
+    // имхо нет выгоды от объявления этого метода абстрактным из-за необходимости работы с инстансами класса
+    private static function getCode($type, $interval)
+    {
+        return 'avg_'.$type.'_'.$interval;
+    }
+
+    public static function calculate($currencyPairCode, $currentTimestamp = '')
     {
         foreach (static::$hourIntervals as $hourInterval) {
             list($buyAverage, $sellAverage) = static::getAveragesForPeriod($currencyPairCode, $hourInterval);
@@ -24,7 +30,7 @@ class Average extends AbstractCurrencyPairsMetric implements Calculatable
 
     public static function store($currencyPairCode, $type, int $interval, $timestamp, $value)
     {
-        static::save($currencyPairCode, 'avg_'.$type.'_'.$interval, $timestamp, $value);
+        static::save($currencyPairCode, static::getCode($type, $interval), $timestamp, $value);
     }
 
     public static function getForPeriod($currencyPairCode, $type, int $interval, $minutes, $countFromTimestamp = null)
@@ -35,7 +41,7 @@ class Average extends AbstractCurrencyPairsMetric implements Calculatable
 
         return parent::getFromDB(
             $currencyPairCode,
-            'avg_'.$type.'_'.$interval,
+            static::getCode($type, $interval),
             $minutes,
             $countFromTimestamp
         );
@@ -60,9 +66,10 @@ class Average extends AbstractCurrencyPairsMetric implements Calculatable
 
         $buySum = 0;
         $sellSum = 0;
+        /** @var CurrencyPairRate $rate */
         foreach ($rates as $rate) {
-            $buySum += $rate['buy_price'];
-            $sellSum += $rate['sell_price'];
+            $buySum += $rate->buy_price;
+            $sellSum += $rate->sell_price;
         }
 
         return [$buySum / $ratesCount, $sellSum / $ratesCount];
@@ -70,14 +77,11 @@ class Average extends AbstractCurrencyPairsMetric implements Calculatable
 
     public static function clearOlderThan($currencyPairCode, $timestamp)
     {
-        $timestampNow = date('U');
-        $indexOtstup = ($timestampNow - $timestamp) / SECONDS_IN_MINUTE;
-
         foreach (static::getAllCodes() as $code) {
-            static::trimByIndexes(
+            static::clearValuesOlderThan(
                 $currencyPairCode,
                 $code,
-                -$indexOtstup
+                $timestamp
             );
         }
     }
@@ -87,7 +91,7 @@ class Average extends AbstractCurrencyPairsMetric implements Calculatable
         $codes = [];
         foreach (static::$hourIntervals as $hourInterval) {
             foreach (['sell', 'buy'] as $type) {
-                $codes[] = 'avg_'.$type.'_'.$hourInterval;
+                $codes[] = static::getCode($type, $hourInterval);
             }
         }
 

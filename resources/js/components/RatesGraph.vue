@@ -20,9 +20,8 @@
             rates: {},
             orders: {},
             metrics: {},
-            trends: {},
-            chosen_metrics: {},
             decisions: {},
+            events: {},
             step: {
                 default: 1
             },
@@ -62,7 +61,7 @@
             decisions: function () {
                 this.makeGraph();
             },
-            chosen_metrics: function () {
+            events: function () {
                 this.makeGraph();
             },
             step: function () {
@@ -138,71 +137,70 @@
                 }
 
                 let yBorders = {};
+                let annotationValues = [];
 
                 // собираем датасеты
                 this.metrics.forEach(function (metric) {
                     metric.values.forEach(function (value) {
+                        let color = vm.getRandomColor();
                         // начинаем массивы метрик
                         if (!data[metric.code]) {
-                            if (vm.chosen_metrics.indexOf(metric.code) !== -1) { // если эту метрику вообще нужно показывать
-                                switch (metric.type) {
-                                    case 'extremum': // просто точки на диаграмме
-                                        let color = vm.getRandomColor();
-                                        data[metric.code] = {
-                                            label: metric.code,
-                                            data: [],
-                                            borderColor: color,
-                                            showLine: false,
-                                            xAxisID: 'default-x-axis',
-                                            backgroundColor: color,
-                                            pointRadius: 5
-                                        };
-                                        break;
-                                    case 'macd':
-                                    case 'sell_quantity':
-                                    case 'buy_amount':
-                                    case 'spread':
-                                        data[metric.code] = {
-                                            label: metric.code,
-                                            data: [],
-                                            borderColor: vm.getRandomColor(),
-                                            type: 'line',
-                                            yAxisID: metric.code + '-y-axis',
-                                            xAxisID: 'default-x-axis',
-                                            backgroundColor: 'transparent',
-                                            pointRadius: 1
-                                        };
-                                        break;
-                                    default: // метрики, у которых значения это цены
-                                        data[metric.code] = {
-                                            label: metric.code,
-                                            data: [],
-                                            borderColor: vm.getRandomColor(),
-                                            backgroundColor: 'transparent',
-                                            pointRadius: 1
-                                        };
-                                        break;
-                                }
+                            switch (metric.type) {
+                                case 'extremum': // просто точки на диаграмме
+                                    data[metric.code] = {
+                                        label: metric.code,
+                                        data: [],
+                                        borderColor: color,
+                                        showLine: false,
+                                        xAxisID: 'default-x-axis',
+                                        backgroundColor: color,
+                                        pointRadius: 5
+                                    };
+                                    break;
+                                case 'macd':
+                                case 'sell_quantity':
+                                case 'buy_amount':
+                                case 'spread':
+                                    data[metric.code] = {
+                                        label: metric.code,
+                                        data: [],
+                                        borderColor: color,
+                                        type: 'line',
+                                        yAxisID: metric.code + '-y-axis',
+                                        xAxisID: 'default-x-axis',
+                                        backgroundColor: 'transparent',
+                                        pointRadius: 1
+                                    };
+                                    break;
+                                default: // метрики, у которых значения это цены
+                                    data[metric.code] = {
+                                        label: metric.code,
+                                        data: [],
+                                        borderColor: color,
+                                        backgroundColor: 'transparent',
+                                        pointRadius: 1
+                                    };
+                                    break;
                             }
                         }
 
-                        // собираем максимумы и минимумы для оси абсцисс
-                        if (!yBorders[metric.code]) {
-                            yBorders[metric.code] = {
-                                maxValue: 0,
-                                minValue: 0,
-                                type: metric.type,
-                            };
-                        }
-                        if (yBorders[metric.code].maxValue < value.value) {
-                            yBorders[metric.code].maxValue = Number(value.value);
-                        }
-                        if (yBorders[metric.code].minValue > value.value) {
-                            yBorders[metric.code].minValue = Number(value.value);
-                        }
+                        if (data[metric.code]) { // если по метрике собираем значения для графика
+                            // собираем максимумы и минимумы для оси абсцисс
+                            if (!yBorders[metric.code]) {
+                                yBorders[metric.code] = {
+                                    maxValue: 0,
+                                    minValue: 0,
+                                    type: metric.type,
+                                };
+                            }
+                            if (yBorders[metric.code].maxValue < value.value) {
+                                yBorders[metric.code].maxValue = Number(value.value);
+                            }
+                            if (yBorders[metric.code].minValue > value.value) {
+                                yBorders[metric.code].minValue = Number(value.value);
+                            }
 
-                        // записываем конкретные значения
-                        if (data[metric.code]) {
+                            // записываем конкретные значения
                             data[metric.code].data.push({
                                 x: Number(value.timestamp),
                                 y: Number(value.value),
@@ -211,7 +209,7 @@
                     });
                 });
 
-                // шаги и горизонтальная ось
+                // шаги и горизонтальная ось // неежемиутные метрики не должны делить свои значения по у на шаг, так как график не сдвигается, а просто берёт промежуточные значения при шаге > 1
                 let tempArr;
                 for (let metricCode in data) {
                     if (data[metricCode]) {
@@ -251,6 +249,10 @@
                 // объединяем датасеты метрик с остальными датасетами
                 for (let dataset in data) {
                     vm.datasets.push(data[dataset]);
+                }
+
+                if (annotationValues.length) {
+                    vm.annotations = vm.annotations.concat(annotationValues);
                 }
             },
             getBuyDataset: function () {
@@ -317,7 +319,6 @@
             getOrdersEntities: function () {
                 let vm = this;
 
-                let datasetValues = [];
                 let annotationValues = [];
 
                 this.orders.forEach(function (order, i) {
@@ -328,18 +329,12 @@
                         }
                     }
 
-                    // значения для графика
-                    datasetValues.push({
-                        x: timestamp,
-                        y: order.price,
-                    });
-
                     // значения для вертикальных линий
                     annotationValues.push(
                         {
                             type: "line",
                             mode: "vertical",
-                            scaleID: "orders-x-axis",
+                            scaleID: "default-x-axis",
                             value: timestamp,
                             borderColor: order.action == 'buy' ? 'blue' : 'red',
                             label: {
@@ -351,20 +346,37 @@
                     );
                 });
 
-                // датасет для графика
-                if (datasetValues.length) {
-                    vm.datasets.push({
-                        label: 'Ордера',
-                        data: datasetValues,
-                        borderColor: 'green',
-                        xAxisID: 'default-x-axis',
-                        showLine: false
-                    });
+                // аннотация для вертикальных линий
+                if (annotationValues.length) {
+                    vm.annotations = vm.annotations.concat(annotationValues);
                 }
+            },
+            getEventsEntities: function () {
+                let vm = this;
+
+                let annotationValues = [];
+
+                this.events.forEach(function (event) {
+                    // значения для вертикальных линий
+                    annotationValues.push(
+                        {
+                            type: "line",
+                            mode: "vertical",
+                            scaleID: "default-x-axis",
+                            value: event.timestamp,
+                            borderColor: 'orange',
+                            label: {
+                                content: event.type,
+                                enabled: true,
+                                position: "top"
+                            }
+                        }
+                    );
+                });
 
                 // аннотация для вертикальных линий
                 if (annotationValues.length) {
-                    vm.annotations = annotationValues;
+                    vm.annotations = vm.annotations.concat(annotationValues);
                 }
             },
             getDecisionsAnnotations: function () {
@@ -372,15 +384,13 @@
                 let annotationValues = [];
 
                 this.decisions.forEach(function (decision, i) {
-                    var timestamp = decision.timestamp;
-
                     // значения для вертикальных линий
                     annotationValues.push(
                         {
                             type: "line",
                             mode: "vertical",
-                            scaleID: "orders-x-axis",
-                            value: timestamp,
+                            scaleID: "default-x-axis",
+                            value: decision.timestamp,
                             borderColor: decision.decision == 'B' ? 'blue' : 'red',
                             label: {
                                 content: decision.trader_code,
@@ -393,53 +403,10 @@
 
                 // аннотация для вертикальных линий
                 if (annotationValues.length) {
-                    vm.annotations = annotationValues;
+                    vm.annotations = vm.annotations.concat(annotationValues);
                 }
 
                 return annotationValues;
-            },
-            getTrendsDatasets: function () {
-                let vm = this;
-
-                this.trends.forEach(function (trend) {
-                    // каждый тренд это 2 прямые линии
-                    vm.datasets.push({
-                        label: 'Тренд ' + trend.type + ' top line',
-                        data: [
-                            {
-                                x: trend.lt_x,
-                                y: trend.lt_y
-                            },
-                            {
-                                x: trend.rt_x,
-                                y: trend.rt_y
-                            }
-                        ],
-                        borderColor: 'yellow',
-                        backgroundColor: 'transparent',
-                        pointRadius: 1,
-                        xAxisID: 'default-x-axis',
-                        borderDash: [10, 5]
-                    });
-                    vm.datasets.push({
-                        label: 'Тренд ' + trend.type + ' bottom line',
-                        data: [
-                            {
-                                x: trend.lb_x,
-                                y: trend.lb_y
-                            },
-                            {
-                                x: trend.rb_x,
-                                y: trend.rb_y
-                            }
-                        ],
-                        borderColor: 'blue',
-                        backgroundColor: 'transparent',
-                        pointRadius: 1,
-                        xAxisID: 'default-x-axis',
-                        borderDash: [10, 5]
-                    });
-                });
             },
             getDefaultXAxis: function () {
                 let vm = this;
@@ -455,18 +422,27 @@
                     }
                 );
             },
+            clearGraph: function () {
+                let vm = this;
+
+                this.colorsUseCount = 0; // очищаем подсчёт цветов, иначе при изменениях списка графиков быстро выйдем за лимит
+                vm.datasets.splice(0, vm.datasets.length); // очищаем датасеты
+                if (vm.annotations) {
+                    vm.annotations.splice(0, vm.annotations.length); // очищаем аннотации
+                } else {
+                    vm.annotations = [];
+                }
+                vm.xAxes.splice(0, vm.xAxes.length); // очищаем оси
+                vm.yAxes.splice(0, vm.yAxes.length); // очищаем оси
+                vm.xAxes.push({}); // всегда должна быть пустая ось для отображения графика в принципе
+                vm.yAxes.push({}); // всегда должна быть пустая ось для отображения графика в принципе
+            },
             makeGraph: function () {
                 let vm = this;
 
                 vm.$emit('loaded', false);
 
-                this.colorsUseCount = 0; // очищаем подсчёт цветов, иначе при изменениях списка графиков быстро выйдем за лимит
-
-                vm.datasets.splice(0, vm.datasets.length); // очищаем датасеты
-                vm.xAxes.splice(0, vm.xAxes.length); // очищаем оси
-                vm.yAxes.splice(0, vm.yAxes.length); // очищаем оси
-                vm.xAxes.push({}); // всегда должна быть пустая ось для отображения графика в принципе
-                vm.yAxes.push({}); // всегда должна быть пустая ось для отображения графика в принципе
+                vm.clearGraph();
 
                 let buyDataset = vm.getBuyDataset();
                 if (buyDataset) {
@@ -477,11 +453,11 @@
                     vm.getOrdersEntities();
                     vm.gainMetricsEntities();
                     vm.getDecisionsAnnotations();
-                    vm.getTrendsDatasets();
+                    vm.getEventsEntities();
 
                     let ctx = this.$refs.ratesChart.getContext('2d');
 
-                    // если мы перерисовываем график, то мы сначала удаляем его и создаём новый, uodate показал себя не очень хорошо
+                    // если мы перерисовываем график, то мы сначала удаляем его и создаём новый. Update показал себя не очень хорошо
                     if (vm.graph !== false) {
                         vm.graph.destroy();
                     }
@@ -529,15 +505,18 @@
     .rates-graph {
         width: 100%;
     }
+
     .rates-graph__canvas-wrapper {
         overflow-x: scroll;
         position: relative;
         width: 100%;
     }
+
     .rates-graph__canvas-inner-wrapper {
         position: relative;
         height: 700px;
     }
+
     .rates-graph__canvas {
         position: absolute;
         left: 0;

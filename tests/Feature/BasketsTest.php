@@ -8,7 +8,6 @@ use App\Models\ExchangeMarket;
 use App\Models\ExchangeMarketUserAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class BasketsTest extends TestCase
@@ -30,9 +29,6 @@ class BasketsTest extends TestCase
         $this->userAccount = factory(ExchangeMarketUserAccount::class)->create();
         $this->user = User::where('id', $this->userAccount->user_id)->first();
         $this->exchangeMarket = ExchangeMarket::where('code', 'test')->first();
-
-        // чистим метрики валют
-        Redis::flushall();
 
         // получаем котировки
         UpdateCurrencyRates::dispatchNow();
@@ -73,11 +69,10 @@ class BasketsTest extends TestCase
      */
     public function user_cannot_delete_not_his_basket()
     {
-        $currencyPair = $this->getCurrencyPair();
         $basket = Basket::create(
             [
                 'start_sum'              => 0.777,
-                'currency_pair_id'       => $currencyPair->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'account_id'             => $this->userAccount->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
@@ -152,33 +147,35 @@ class BasketsTest extends TestCase
      */
     public function test_occupied_in_baskets_calculation()
     {
-        $currencyPair1 = $this->getCurrencyPair('test', 'BTC', 'USD');
-        $basket1 = $this->userAccount->baskets()->create(
+        // 1 BTC хотим продать
+        $this->userAccount->baskets()->create(
             [
                 'start_sum'              => 1,
-                'currency_pair_id'       => $currencyPair1->id,
+                'currency_pair_id'       => $this->getCurrencyPair('test', 'BTC', 'USD')->id,
                 'currency_1_last_amount' => 1,
                 'currency_2_last_amount' => 1,
                 'next_action'            => SELL_ACTION_CODE,
                 'strategy'               => 'OtstupTrader',
             ]
         );
-        $currencyPair2 = $this->getCurrencyPair('test', 'BTC', 'USD');
-        $basket2 = $this->userAccount->baskets()->create(
+
+        // на 2 доллара хотим купить биткоинов
+        $this->userAccount->baskets()->create(
             [
                 'start_sum'              => 2,
-                'currency_pair_id'       => $currencyPair2->id,
+                'currency_pair_id'       => $this->getCurrencyPair('test', 'BTC', 'USD')->id,
                 'currency_1_last_amount' => 2,
                 'currency_2_last_amount' => 2,
                 'next_action'            => BUY_ACTION_CODE,
                 'strategy'               => 'OtstupTrader',
             ]
         );
-        $currencyPair3 = $this->getCurrencyPair('test', 'ETH', 'USD');
-        $basket3 = $this->userAccount->baskets()->create(
+
+        // на 3 доллара хотим купить эфира
+        $this->userAccount->baskets()->create(
             [
                 'start_sum'              => 3,
-                'currency_pair_id'       => $currencyPair3->id,
+                'currency_pair_id'       => $this->getCurrencyPair('test', 'ETH', 'USD')->id,
                 'currency_1_last_amount' => 3,
                 'currency_2_last_amount' => 3,
                 'next_action'            => BUY_ACTION_CODE,

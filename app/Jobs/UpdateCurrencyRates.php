@@ -22,14 +22,12 @@ class UpdateCurrencyRates implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $currencies;
-    public $serverTimestamp;
 
     /**
      * @return void
      */
     public function __construct()
     {
-        $this->serverTimestamp = date('U');
         $this->getCurrencies();
     }
 
@@ -78,8 +76,7 @@ class UpdateCurrencyRates implements ShouldQueue
                         new CurrencyPairRateChanged(
                             $currencyPairID,
                             $rate->currencyPairCode,
-                            $rate,
-                            $this->serverTimestamp
+                            $rate
                         )
                     );
                 }
@@ -89,7 +86,7 @@ class UpdateCurrencyRates implements ShouldQueue
         // замер производительности
         Metrics::log(
             'check_rates_tick_execution_time',
-            (date('U') - $this->serverTimestamp)
+            (date('U') - $rate->timestamp)
         );
     }
 

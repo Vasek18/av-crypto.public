@@ -11,6 +11,7 @@ use App\Models\ExchangeMarketUserAccount;
 use App\Models\Order;
 use App\Trading\CurrencyPairRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class ExmoTestTest extends TestCase
@@ -35,27 +36,57 @@ class ExmoTestTest extends TestCase
      */
     public function exchangeMarketReturnsRatesAndItIsEqualToExmos()
     {
+        // создаём нужные валютные пары. Раньше валюты exmo создавалась через миграцию, но это лишнее для тестирования в общем, поэтому создаём одну валюту специально для этого теста
+        $exmoExchangeMarket = ExchangeMarket::where('code', 'exmo')->first();
+        $exmoCurrencyPair = ExchangeMarketCurrencyPair::create(
+            array(
+                'currency_1_code'       => 'BTC',
+                'currency_2_code'       => 'USD',
+                'currency_1_min_amount' => 0.001,
+                'currency_1_max_amount' => 100,
+                'min_price'             => 1,
+                'max_price'             => 30000,
+                'currency_2_max_amount' => 200000,
+                'currency_2_min_amount' => 1,
+                'commission_percents'   => 0.2,
+                'exchange_market_id'    => $exmoExchangeMarket->id,
+                'active'                => true,
+            )
+        );
+        $exmoTestExchangeMarket = ExchangeMarket::where('code', 'exmo_test')->first();
+        $exmoTestCurrencyPair = ExchangeMarketCurrencyPair::firstOrCreate(
+            array(
+                'currency_1_code'    => 'BTC',
+                'currency_2_code'    => 'USD',
+                'exchange_market_id' => $exmoTestExchangeMarket->id,
+                'active'             => true,
+            ),
+            array(
+                'currency_1_code'       => 'BTC',
+                'currency_2_code'       => 'USD',
+                'currency_1_min_amount' => 0.001,
+                'currency_1_max_amount' => 100,
+                'min_price'             => 1,
+                'max_price'             => 30000,
+                'currency_2_max_amount' => 200000,
+                'currency_2_min_amount' => 1,
+                'commission_percents'   => 0.2,
+                'exchange_market_id'    => $exmoTestExchangeMarket->id,
+                'active'                => true,
+            )
+        );
+        Cache::forget('active_currency_pairs'); // нужно забыть список активных пар после этого
+
         // получаем котировки
         UpdateCurrencyRates::dispatchNow();
 
         // получаем котировку Exmo
-        $exchangeMarket = ExchangeMarket::where('code', 'exmo')->first();
-        $currencyPair = ExchangeMarketCurrencyPair::where('currency_1_code', 'BTC')
-            ->where('currency_2_code', 'USD')
-            ->where('exchange_market_id', $exchangeMarket->id)
-            ->first();
-        $lastExmoRate = CurrencyPairRate::getLast($currencyPair->code);
-
+        $lastExmoRate = CurrencyPairRate::getLast($exmoCurrencyPair->code);
         // получаем котировку тестового Exmo
-        $exchangeMarket = ExchangeMarket::where('code', 'exmo_test')->first();
-        $currencyPair = ExchangeMarketCurrencyPair::where('currency_1_code', 'BTC')
-            ->where('currency_2_code', 'USD')
-            ->where('exchange_market_id', $exchangeMarket->id)
-            ->first();
-        $lastExmoTestRate = CurrencyPairRate::getLast($currencyPair->code);
+        $lastExmoTestRate = CurrencyPairRate::getLast($exmoTestCurrencyPair->code);
 
-        $this->assertEquals($lastExmoRate['buy_price'], $lastExmoTestRate['buy_price']);
-        $this->assertEquals($lastExmoRate['sell_price'], $lastExmoTestRate['sell_price']);
+        $this->assertEquals($lastExmoRate->buy_price, $lastExmoTestRate->buy_price);
+        $this->assertEquals($lastExmoRate->sell_price, $lastExmoTestRate->sell_price);
     }
 
     /**

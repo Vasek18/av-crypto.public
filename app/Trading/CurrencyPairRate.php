@@ -49,9 +49,8 @@ class CurrencyPairRate implements Clearable
         );
     }
 
-    // todo метод возвращает последние, например, 100 значений, а не значения за последние 100 минут. Если котировок не было за последнее время, то будет выдавать устаревшие данные
-    // todo совсем не нравится эта система с минутами. По идее нужно просто 2 границы в таймстемпах использовать
-    // todo можно возвращать коллекцию этого класса, а не массив массивов
+    // Такая система с минутами удобнее двух таймстемпов при расчётах метрик
+    // Метод возвращает последние, например, 100 значений, а не значения за последние 100 минут. Если котировок не было за последнее время, то будет выдавать устаревшие данные. Но это же значит, что и биржа падала, а значит данные остаются актуальными для торгов
     public static function getForPeriod($currencyPairCode, $minutes = null, $countFromTimestamp = null)
     {
         // первый индекс
@@ -64,7 +63,7 @@ class CurrencyPairRate implements Clearable
         // последний индекс
         $lastKey = -1;
         if ($countFromTimestamp) {
-            $lastKey = ($countFromTimestamp - date('U')) / SECONDS_IN_MINUTE;
+            $lastKey = floor(($countFromTimestamp - date('U')) / SECONDS_IN_MINUTE); // обязательно должен быть integer
             if ($lastKey > -1) {
                 $lastKey = -1;
             }
@@ -77,18 +76,31 @@ class CurrencyPairRate implements Clearable
         );
 
         foreach ($values as $c => $value) {
-            $values[$c] = unserialize($value);
+            $unserialized = unserialize($value);
+            $values[$c] = new static(
+                $currencyPairCode,
+                $unserialized['buy_price'],
+                $unserialized['sell_price'],
+                $unserialized['timestamp']
+            );
         }
 
         return $values;
     }
 
-    // todo можно возвращать класс, а не массив
-    public static function getLast($currencyPairCode)
+    public static function getLast($currencyPairCode): ?CurrencyPairRate
     {
         $values = static::getForPeriod($currencyPairCode, 1);
+        if (empty($values) || !$values[0]) {
+            return null;
+        }
 
-        return !empty($values) ? $values[0] : null;
+        return new static(
+            $currencyPairCode,
+            $values[0]->buy_price,
+            $values[0]->sell_price,
+            $values[0]->timestamp
+        );
     }
 
     public static function clearOlderThan($currencyPairCode, $timestamp)
@@ -96,17 +108,13 @@ class CurrencyPairRate implements Clearable
         $redisKey = $currencyPairCode.'.rates';
 
         $timestampNow = date('U');
-        $start = -(($timestampNow - $timestamp) / SECONDS_IN_MINUTE);
+        $tooOldMetricsLifeInMinutes = ($timestampNow - $timestamp) / SECONDS_IN_MINUTE;
 
-        // боремся с выходом за диапазон
-        $length = Redis::llen($redisKey);
-        if ($length + $start < 0) {
-            $start = 0;
-        }
+        $indexOtstup = ceil(-$tooOldMetricsLifeInMinutes); // минус, так как обрезаем, те что были до начала таймстемпа
 
         Redis::ltrim(
             $redisKey,
-            $start,
+            $indexOtstup,
             -1
         );
     }

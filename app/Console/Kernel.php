@@ -7,7 +7,9 @@ use App\Jobs\ClearDB;
 use App\Jobs\UpdateCurrenciesSettings;
 use App\Jobs\UpdateCurrencyRates;
 use App\Jobs\UpdateOrderBooksInfo;
+use App\Models\CurrencyPairEventObservation;
 use App\Models\Metrics\Metrics;
+use App\Trading\Observation;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Schema;
@@ -55,6 +57,13 @@ class Kernel extends ConsoleKernel
                     Metrics::calculateMetrics();
                 }
             )->dailyAt('23:50'); // считаем прямо перед полуночью, а не после, иначе получаем нелогичные данные
+
+            // считаем попадания событий
+            $schedule->call(
+                function () {
+                    CurrencyPairEventObservation::checkEvents();
+                }
+            )->everyMinute();
         }
     }
 

@@ -6,7 +6,6 @@ use App\CurrencyPairsMetrics\Average;
 use App\CurrencyPairsMetrics\Macd;
 use App\Jobs\UpdateCurrencyRates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class CalculateCurrencyPairMetricsMacdTest extends TestCase
@@ -17,17 +16,6 @@ class CalculateCurrencyPairMetricsMacdTest extends TestCase
     protected $runTestInSeparateProcess = true;
 
     public $hourIntervals = [1, 2, 4, 6, 8, 12, 24];
-    public $currencyPair;
-
-    public function setUp()
-    {
-        parent::setUp();
-
-        $this->currencyPair = $this->getCurrencyPair();
-
-        // чистим редис перед каждым тестом
-        Redis::flushall();
-    }
 
     /**
      * @test
@@ -37,41 +25,37 @@ class CalculateCurrencyPairMetricsMacdTest extends TestCase
     public function itCalculatesMacdForNeededAveragesPairs()
     {
         // чтобы не рассчитывать средние слишком долго, наполним редис ими сразу
-        foreach ($this->hourIntervals as $c => $hourInterval) {
-            Average::store($this->currencyPair->code, 'buy', $hourInterval, date('U'), $c + 1);
+        foreach (Average::$hourIntervals as $c => $hourInterval) {
+            Average::store($this->testCurrencyPair->code, 'buy', $hourInterval, $this->timestampNow, $c + 1);
         }
 
         // запускаем расчёт метрик
         UpdateCurrencyRates::dispatchNow();
 
-        // проходимся по всем парам средних и сами рассчитываем разницу для проверки macd. Таких пар 21 при 7 средних
-        for ($i = 0; $i < count($this->hourIntervals) - 1; $i++) { // идём по всем диапазонам средних, кроме последнего
-            for ($j = count($this->hourIntervals) - 1; $j > $i; $j--) { // по всем диапазонам выше, чем в первом цикле
-                // получаем средние обоих диапазонов
-                $hourIntervalFast = $this->hourIntervals[$i];
-                $hourIntervalSlow = $this->hourIntervals[$j];
-                $fastAverageValue = Average::getLast(
-                    $this->currencyPair->code,
-                    'buy',
-                    $hourIntervalFast
-                )['value'];
-                $slowAverageValue = Average::getLast(
-                    $this->currencyPair->code,
-                    'buy',
-                    $hourIntervalSlow
-                )['value'];
+        // проходимся по всем парам средних и сами рассчитываем разницу для проверки macd
+        foreach (Macd::getAllAveragePeriodsPairs() as list($hourIntervalFast, $hourIntervalSlow)) {
+            // получаем средние обоих диапазонов
+            $fastAverageValue = Average::getLast(
+                $this->testCurrencyPair->code,
+                'buy',
+                $hourIntervalFast
+            )['value'];
+            $slowAverageValue = Average::getLast(
+                $this->testCurrencyPair->code,
+                'buy',
+                $hourIntervalSlow
+            )['value'];
 
-                // получаем macd
-                $macd = Macd::getLast(
-                    $this->currencyPair->code,
-                    $hourIntervalFast,
-                    $hourIntervalSlow
-                );
+            // получаем macd
+            $macd = Macd::getLast(
+                $this->testCurrencyPair->code,
+                $hourIntervalFast,
+                $hourIntervalSlow
+            );
 
-                // проверяем значение и само наличие метрики
-                $this->assertNotEquals(0, $macd['value']); // самая важная проверка тут
-                $this->assertEquals($fastAverageValue - $slowAverageValue, $macd['value']);
-            }
+            // проверяем значение и само наличие метрики
+            $this->assertNotEquals(0, $macd['value']); // наличие
+            $this->assertEquals($fastAverageValue - $slowAverageValue, $macd['value']); // значение
         }
     }
 
@@ -82,29 +66,66 @@ class CalculateCurrencyPairMetricsMacdTest extends TestCase
     public function periodGetterTest()
     {
         $testValuesCount = 10;
-        $oldestMetricTimestamp = date('U') - ($testValuesCount - 1) * SECONDS_IN_MINUTE;
+        $oldestMetricTimestamp = $this->timestampNow - ($testValuesCount - 1) * SECONDS_IN_MINUTE;
 
         // заполняем
-        for ($i = 0; $i < $testValuesCount; $i++) {
-            $timestamp = $oldestMetricTimestamp + $i * SECONDS_IN_MINUTE;
+        for ($minutes = 0; $minutes < $testValuesCount; $minutes++) {
+            $timestamp = $oldestMetricTimestamp + $minutes * SECONDS_IN_MINUTE;
             Macd::store(
-                $this->currencyPair->code,
+                $this->testCurrencyPair->code,
                 1,
                 2,
                 $timestamp,
-                $i // просто какое-то число, мы не это проверяем
+                $minutes // просто какое-то число, мы не это проверяем
             );
 
             Macd::store(
-                $this->currencyPair->code,
+                $this->testCurrencyPair->code,
                 1,
                 24,
                 $timestamp,
-                $i // просто какое-то число, мы не это проверяем
+                $minutes // просто какое-то число, мы не это проверяем
             );
         }
 
-        $this->assertEquals(4, count(Macd::getForPeriod($this->currencyPair->code, 1, 2, 4)));
-        $this->assertEquals(5, count(Macd::getForPeriod($this->currencyPair->code, 1, 24, 5)));
+        $this->assertEquals(4, count(Macd::getForPeriod($this->testCurrencyPair->code, 1, 2, 4)));
+        $this->assertEquals(5, count(Macd::getForPeriod($this->testCurrencyPair->code, 1, 24, 5)));
+    }
+
+    /**
+     * @test
+     */
+    public function getAllAveragePairsPeriodsTest()
+    {
+        $avgHourIntervals = Average::$hourIntervals;
+
+        $avgPeriodsPairs = Macd::getAllAveragePeriodsPairs();
+
+        $this->assertEquals([$avgHourIntervals[0], $avgHourIntervals[1]], $avgPeriodsPairs[0]);
+        $this->assertEquals([$avgHourIntervals[0], $avgHourIntervals[2]], $avgPeriodsPairs[1]);
+        $this->assertEquals(
+            $this->countPossibleCombinations(count($avgHourIntervals), 2),
+            count($avgPeriodsPairs)
+        );
+    }
+
+    public static function factorial($n)
+    {
+        if ($n == 0) {
+            return 1;
+        }
+
+        return $n * self::factorial($n - 1);
+    }
+
+    public function countPossibleCombinations($elementsCount, $oneCombinationElementsCount)
+    {
+        return $this->factorial($elementsCount)
+            /
+            (
+                $this->factorial($elementsCount - $oneCombinationElementsCount)
+                *
+                $oneCombinationElementsCount
+            );
     }
 }

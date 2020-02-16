@@ -19,7 +19,6 @@ class UpdateOrderBooksInfo implements ShouldQueue
 
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $currencies;
     public $serverTimestamp;
 
     /**

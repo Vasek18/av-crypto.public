@@ -38,12 +38,16 @@ class ExmoTestExchangeMarket extends ExchangeMarket
     {
         $exmoRate = CurrencyPairRate::getLast('exmo.BTC.USD');
 
+        if (!$exmoRate) {
+            return [];
+        }
+
         $rates = [];
         // возвращаем последнюю котировку exmo
         $rates[] = new CurrencyPairRate(
             'exmo_test.BTC.USD',
-            $exmoRate['buy_price'],
-            $exmoRate['sell_price'],
+            $exmoRate->buy_price,
+            $exmoRate->sell_price,
             $this->floorToMinute(date('U'))
         );
 

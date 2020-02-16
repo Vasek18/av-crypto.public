@@ -116,7 +116,7 @@ class Basket extends Model
             $this->next_action
         );
 
-        // todo возможно потенциальная брежь в безопасности
+        // todo возможно потенциальная брежь в безопасности // можно хранить сами ключи в бд зашифрованными с солью
         return $exmClass->placeOrder($exmOrder, $this->account->public_key, $this->account->secret_key);
     }
 
@@ -294,7 +294,9 @@ class Basket extends Model
 
         $commissionMultiplier = (100 + $currencyPair->commission_percents) / 100;
 
-        return Basket::round($start_sum * $currencyPairLastRate['buy_price'] * $commissionMultiplier);
+        return Basket::round(
+            $start_sum * $currencyPairLastRate->buy_price * $commissionMultiplier
+        ); // todo почему именно buy?
     }
 
     public function userOwnTheBasket($userID)

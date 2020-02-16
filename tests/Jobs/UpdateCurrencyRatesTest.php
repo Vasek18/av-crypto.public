@@ -5,6 +5,7 @@ namespace Tests\Jobs;
 use App\Jobs\UpdateCurrencyRates;
 use App\Listeners\Trade;
 use App\Models\Basket;
+use App\Models\ExchangeMarket;
 use App\Models\ExchangeMarketCurrencyPair;
 use App\Models\ExchangeMarketUserAccount;
 use App\Models\Metrics\Metrics;
@@ -12,6 +13,7 @@ use App\Models\Order;
 use App\Models\TraderDecision;
 use App\Trading\CurrencyPairRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
@@ -30,8 +32,24 @@ class UpdateCurrencyRatesTest extends TestCase
 
         $this->userAccount = factory(ExchangeMarketUserAccount::class)->create();
 
-        // чистим редис перед каждым тестом
-        Redis::flushall();
+        // нужна хотя бы одна эксмовская валютная пара
+        $exmoExchangeMarket = ExchangeMarket::where('code', 'exmo')->first();
+        ExchangeMarketCurrencyPair::create(
+            array(
+                'currency_1_code'       => 'BTC',
+                'currency_2_code'       => 'USD',
+                'currency_1_min_amount' => 0.001,
+                'currency_1_max_amount' => 100,
+                'min_price'             => 1,
+                'max_price'             => 30000,
+                'currency_2_max_amount' => 200000,
+                'currency_2_min_amount' => 1,
+                'commission_percents'   => 0.2,
+                'exchange_market_id'    => $exmoExchangeMarket->id,
+                'active'                => true,
+            )
+        );
+        Cache::forget('active_currency_pairs'); // нужно забыть список активных пар после этого
     }
 
     /**
@@ -68,7 +86,7 @@ class UpdateCurrencyRatesTest extends TestCase
             $rate = CurrencyPairRate::getLast($currencyPair->code);
             $this->assertEquals(
                 0,
-                $rate['timestamp'] % SECONDS_IN_MINUTE
+                $rate->timestamp % SECONDS_IN_MINUTE
             );
         }
     }
@@ -93,7 +111,7 @@ class UpdateCurrencyRatesTest extends TestCase
             [
                 'start_sum'              => 1000,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => 1000,
                 'next_action'            => BUY_ACTION_CODE,
@@ -124,7 +142,7 @@ class UpdateCurrencyRatesTest extends TestCase
             [
                 'start_sum'              => 0.001,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -137,7 +155,7 @@ class UpdateCurrencyRatesTest extends TestCase
             [
                 'start_sum'              => 1000,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -149,7 +167,7 @@ class UpdateCurrencyRatesTest extends TestCase
             [
                 'start_sum'              => 1000,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -159,7 +177,7 @@ class UpdateCurrencyRatesTest extends TestCase
         );
 
         $baskets = Trade::getBaskets(
-            $this->getCurrencyPair()->id,
+            $this->testCurrencyPair->id,
             SELL_ACTION_CODE,
             DEFAULT_TRADER
         );
@@ -183,7 +201,7 @@ class UpdateCurrencyRatesTest extends TestCase
             [
                 'start_sum'              => 1000,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => 1000,
                 'next_action'            => BUY_ACTION_CODE,
@@ -216,7 +234,7 @@ class UpdateCurrencyRatesTest extends TestCase
             [
                 'start_sum'              => 1000,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => 1000,
                 'next_action'            => BUY_ACTION_CODE,

@@ -9,8 +9,8 @@ use App\CurrencyPairsMetrics\Macd;
 use App\CurrencyPairsMetrics\MacdAverage;
 use App\CurrencyPairsMetrics\SellQuantity;
 use App\CurrencyPairsMetrics\Spread;
-use App\CurrencyPairsMetrics\Trend;
 use App\Models\ExchangeMarketCurrencyPair;
+use App\Models\Metrics\MetricsValue;
 use App\Models\TraderDecision;
 use App\Trading\CurrencyPairRate;
 use Illuminate\Bus\Queueable;
@@ -24,6 +24,8 @@ class ClearDB implements ShouldQueue
 
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $nowTimestamp;
+
     /**
      * Create a new job instance.
      *
@@ -31,33 +33,29 @@ class ClearDB implements ShouldQueue
      */
     public function __construct()
     {
-        //
+        $this->nowTimestamp = date('U');
     }
 
     /**
-     * todo наверное стоит очищать старые метрики самого сайта
-     *
      * Execute the job.
      *
      * @return void
      */
     public function handle()
     {
-        $nowTimestamp = date('U');
-        if (env('APP_ENV') !== 'testing') {
-            $notLateThanTimestamp = $nowTimestamp - SECONDS_TO_KEEP_RATES_IN_DB;
-        } else {
-            $notLateThanTimestamp = $nowTimestamp - SECONDS_TO_KEEP_RATES_IN_DB_FOR_TEST; // уменьшаем время выполнения тестов // todo вроде бы есть более красивый способ переопределения констант
-        }
+        $notLateThanTimestampForTrading = $this->nowTimestamp - SECONDS_TO_KEEP_RATES_IN_DB;
 
         // удаляем старые решения трейдеров
-        TraderDecision::where('timestamp', '<', $notLateThanTimestamp)->delete();
+        $this->clearOldTradersDecisions($notLateThanTimestampForTrading);
+
+        // удаляем старые значения метрик сайта
+        $this->clearOldSiteMetricsValues();
 
         foreach (ExchangeMarketCurrencyPair::active()->get() as $currencyPair) {
             // удаляем старые записи о котировках
-            CurrencyPairRate::clearOlderThan($currencyPair->code, $notLateThanTimestamp);
+            CurrencyPairRate::clearOlderThan($currencyPair->code, $notLateThanTimestampForTrading);
             // удаляем старые метрики пар
-            $this->clearOldCurrencyPairMetricValues($currencyPair->code, $notLateThanTimestamp);
+            $this->clearOldCurrencyPairMetricValues($currencyPair->code, $notLateThanTimestampForTrading);
         }
     }
 
@@ -71,6 +69,16 @@ class ClearDB implements ShouldQueue
         SellQuantity::clearOlderThan($currencyPairCode, $notLateThanTimestamp);
         BuyAmount::clearOlderThan($currencyPairCode, $notLateThanTimestamp);
         Spread::clearOlderThan($currencyPairCode, $notLateThanTimestamp);
-        Trend::clearOlderThan($notLateThanTimestamp);
+    }
+
+    public function clearOldTradersDecisions($notLateThanTimestamp)
+    {
+        TraderDecision::where('timestamp', '<', $notLateThanTimestamp)->delete();
+    }
+
+    public function clearOldSiteMetricsValues()
+    {
+        $notLateThanTimestamp = $this->nowTimestamp - SECONDS_TO_KEEP_METRICS_IN_DB;
+        MetricsValue::where('timestamp', '<', $notLateThanTimestamp)->delete();
     }
 }

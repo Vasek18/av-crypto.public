@@ -39,7 +39,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 0.777,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -70,7 +70,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 1,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => 1,
                 'next_action'            => BUY_ACTION_CODE,
@@ -98,7 +98,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 0.777,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -128,7 +128,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 1,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -163,7 +163,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 1,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -201,7 +201,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 1,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,
                 'next_action'            => SELL_ACTION_CODE,
@@ -216,7 +216,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 1,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => 0.5,
                 'next_action'            => BUY_ACTION_CODE,
@@ -231,7 +231,7 @@ class OrderCreatingTest extends TestCase
             [
                 'start_sum'              => 1,
                 'account_id'             => $this->userAccount->id,
-                'currency_pair_id'       => $this->getCurrencyPair()->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => 0.00001,
                 'next_action'            => BUY_ACTION_CODE,

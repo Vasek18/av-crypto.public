@@ -14,23 +14,19 @@ class CurrencyPairRateChanged
     public $currencyPairID;
     public $currencyPairCode;
     public $rate;
-    public $serverTimestamp; // todo стал равен таймстемпу котировки
 
     /**
      * @param integer $currencyPairID
      * @param string $currencyPairCode
      * @param CurrencyPairRate $rate
-     * @param integer $serverTimestamp
      */
     public function __construct(
         $currencyPairID,
         $currencyPairCode,
-        CurrencyPairRate $rate,
-        $serverTimestamp
+        CurrencyPairRate $rate
     ) {
         $this->currencyPairID = $currencyPairID;
         $this->currencyPairCode = $currencyPairCode;
         $this->rate = $rate;
-        $this->serverTimestamp = $serverTimestamp;
     }
 }

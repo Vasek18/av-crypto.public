@@ -7,7 +7,6 @@ use App\Traders\TraderDecision;
 use App\Trading\CurrencyPairRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class OtstupTraderTest extends TestCase
@@ -18,16 +17,10 @@ class OtstupTraderTest extends TestCase
     protected $preserveGlobalState      = false;
     protected $runTestInSeparateProcess = true;
 
-    public $btcUsdCurrencyPair;
 
     public function setUp()
     {
         parent::setUp();
-
-        // чистим редис перед каждым тестом
-        Redis::flushall();
-
-        $this->btcUsdCurrencyPair = $this->getCurrencyPair();
 
         // сидер нужно запускать после очистки редиса, ведь именно туда мы сохраняем котировки
         $this->seed('TestExchangeMarketsDayRatesSeeder');
@@ -51,7 +44,7 @@ class OtstupTraderTest extends TestCase
             ->willReturn(false);
 
         $rate = new CurrencyPairRate(
-            $this->btcUsdCurrencyPair->code,
+            $this->testCurrencyPair->code,
             $this->faker->randomFloat(),
             $this->faker->randomFloat(),
             date('U')
@@ -81,7 +74,7 @@ class OtstupTraderTest extends TestCase
             ->willReturn(false);
 
         $rate = new CurrencyPairRate(
-            $this->btcUsdCurrencyPair->code,
+            $this->testCurrencyPair->code,
             $this->faker->randomFloat(),
             $this->faker->randomFloat(),
             date('U')
@@ -99,7 +92,7 @@ class OtstupTraderTest extends TestCase
      */
     public function traderUpdatesItsTempData()
     {
-        $trader = new OtstupTrader($this->btcUsdCurrencyPair->code, false);
+        $trader = new OtstupTrader($this->testCurrencyPair->code, false);
 
         // сначала переменные должны быть пусты
         $this->assertFalse($trader->getBuyLastMax());
@@ -108,7 +101,7 @@ class OtstupTraderTest extends TestCase
         $this->assertFalse($trader->getSellLastMin());
 
         $rate = new CurrencyPairRate(
-            $this->btcUsdCurrencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             date('U')
@@ -125,7 +118,7 @@ class OtstupTraderTest extends TestCase
         $this->assertEquals($trader->getSellLastMax(), $trader->getSellLastMin());
 
         $rate = new CurrencyPairRate(
-            $this->btcUsdCurrencyPair->code,
+            $this->testCurrencyPair->code,
             2,
             2,
             date('U')
@@ -144,9 +137,9 @@ class OtstupTraderTest extends TestCase
      */
     public function traderDiffersItsTempDataBetweenCurrencyPairs()
     {
-        $trader1 = new OtstupTrader($this->btcUsdCurrencyPair->code, false);
+        $trader1 = new OtstupTrader($this->testCurrencyPair->code, false);
         $rate1 = new CurrencyPairRate(
-            $this->btcUsdCurrencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             date('U')
@@ -189,10 +182,10 @@ class OtstupTraderTest extends TestCase
      */
     public function traderCanClearItsTempData()
     {
-        $trader = new OtstupTrader($this->btcUsdCurrencyPair->code, false);
+        $trader = new OtstupTrader($this->testCurrencyPair->code, false);
 
         $rate = new CurrencyPairRate(
-            $this->btcUsdCurrencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             date('U')

@@ -22,7 +22,7 @@
                                    :orders="orders"
                                    :metrics="metrics"
                                    :decisions="decisions"
-                                   :trends="trends"
+                                   :events="events"
                                    :dateFrom="dateFrom"
                                    :dateTo="dateTo"
                                    :currencyPair="currency_pair"
@@ -102,7 +102,7 @@
                 orders: [],
                 metrics: [],
                 decisions: [],
-                trends: [],
+                events: [],
                 loaded: true,
                 errors: [],
             }
@@ -160,8 +160,8 @@
                         if (answer.decisions) {
                             vm.decisions = answer.decisions;
                         }
-                        if (answer.trends) {
-                            vm.trends = answer.trends;
+                        if (answer.events) {
+                            vm.events = answer.events;
                         }
 
                         vm.loaded = true;

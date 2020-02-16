@@ -13,11 +13,7 @@ class BuyAmount extends AbstractCurrencyPairsMetric
 
     public static function clearOlderThan($currencyPairCode, $timestamp)
     {
-        // считаем, что эта метрика тоже ежеминутная
-        $timestampNow = date('U');
-        $indexOtstup = ($timestampNow - $timestamp) / SECONDS_IN_MINUTE;
-
-        static::trimByIndexes($currencyPairCode, static::$code, -$indexOtstup);
+        static::clearValuesOlderThan($currencyPairCode, static::$code, $timestamp);
     }
 
     public static function getForPeriod($currencyPairCode, $minutes, $countFromTimestamp = null)

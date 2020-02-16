@@ -30,6 +30,8 @@ Vue.component('rates-graph', require('./components/RatesGraph.vue'));
 Vue.component('past-analysis', require('./components/PastAnalysis.vue'));
 Vue.component('past-analysis-form', require('./components/PastAnalysisForm.vue'));
 Vue.component('past-analysis-graph-block', require('./components/PastAnalysisGraphBlock.vue'));
+Vue.component('currency-pair-select', require('./components/CurrencyPairSelect.vue'));
+Vue.component('observations-list', require('./components/ObservationsList.vue'));
 
 Vue.filter('formatDate', function (value) {
     return DateTimeHelper.formatDateTime(value)

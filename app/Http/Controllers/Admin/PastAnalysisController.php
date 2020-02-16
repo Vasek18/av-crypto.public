@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\CurrencyPairTrend;
+use App\Models\CurrencyPairEventObservation;
 use App\Models\ExchangeMarket;
 use App\Models\ExchangeMarketCurrencyPair;
 use App\Models\Order;
 use App\Models\TraderDecision;
+use App\Models\TraderDecision as DesicionInDB;
 use App\Trading\CurrencyPairRate;
+use App\Trading\Event;
 use App\Traits\GetInfoForAnalysisGraph;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -20,6 +22,15 @@ class PastAnalysisController extends Controller
 
     public function index()
     {
+        DesicionInDB::create(
+            [
+                'currency_pair_id' => 1,
+                'trader_code'      => 'test'.rand(1, 3),
+                'decision'         => 'S',
+                'timestamp'        => date('U'),
+            ]
+        );
+
         $exchangeMarkets = Cache::remember(
             'exchange_markets',
             now()->addDay(),
@@ -43,7 +54,8 @@ class PastAnalysisController extends Controller
         return view(
             'admin.past_analysis.index',
             [
-                'exchange_markets' => $exchangeMarkets, // todo а зачем нам этот массив?
+                'exchange_markets' => $exchangeMarkets,
+                // todo а зачем нам этот массив? // чтобы показывать название биржи у валют, но мб можно решить через получение кода валюты
                 'currency_pairs'   => $currencyPairs,
             ]
         );
@@ -82,14 +94,18 @@ class PastAnalysisController extends Controller
             ->where('timestamp', '<=', $timestampTo)
             ->get();
 
-        $trends = CurrencyPairTrend::getForPeriod($request->currency_pair_id, $timestampFrom, $timestampTo);
+        $events = [];
+        // если нужны последние сутки. Потому что события хранятся только сутки
+        if ($timestampTo > date('U') - CurrencyPairEventObservation::getPeriodInSeconds()) {
+            $events = Event::get($currencyPairCode);
+        }
 
         return [
             'rates'     => $rates,
             'orders'    => $orders,
             'metrics'   => $metrics,
             'decisions' => $decisions,
-            'trends'    => $trends,
+            'events'    => $events,
         ];
     }
 

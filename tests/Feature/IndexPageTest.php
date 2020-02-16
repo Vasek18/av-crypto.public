@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\ExchangeMarket;
-use App\Models\ExchangeMarketCurrencyPair;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Redis;
@@ -17,26 +16,18 @@ class IndexPageTest extends TestCase
     protected $runTestInSeparateProcess = true;
 
     public $exchangeMarket;
-    public $currencyPair;
     public $now;
 
     public function setUp()
     {
         parent::setUp();
 
-        // чистим редис перед каждым тестом
-        Redis::flushall();
 
         // набиваем бд тестовыми данными
         $this->seed('TestExchangeMarketsDayRatesSeeder');
 
         // параметры для запроса
         $this->exchangeMarket = ExchangeMarket::where('code', 'test')->first();
-        $this->currencyPair = ExchangeMarketCurrencyPair
-            ::where('exchange_market_id', $this->exchangeMarket->id)
-            ->where('currency_1_code', 'BTC')
-            ->where('currency_2_code', 'USD')
-            ->first();
 
         $this->now = Carbon::today();
     }
@@ -48,9 +39,9 @@ class IndexPageTest extends TestCase
             'GET',
             '/get-pair-info',
             [
-                'currency_pair_id'   => $this->currencyPair->id,
-                'currency_1_code'    => $this->currencyPair->currency_1_code,
-                'currency_2_code'    => $this->currencyPair->currency_2_code,
+                'currency_pair_id'   => $this->testCurrencyPair->id,
+                'currency_1_code'    => $this->testCurrencyPair->currency_1_code,
+                'currency_2_code'    => $this->testCurrencyPair->currency_2_code,
                 'exchange_market_id' => $this->exchangeMarket->id,
                 'dateFrom'           => $this->now->toDayDateTimeString(),
                 'dateTo'             => $this->now->addDay()->toDayDateTimeString(),
@@ -89,7 +80,7 @@ class IndexPageTest extends TestCase
         foreach ($metricRedisCodes as $c => $metricRedisCode) {
             // забьём пару значений
             Redis::rpush(
-                $this->currencyPair->code.'.'.$metricRedisCode,
+                $this->testCurrencyPair->code.'.'.$metricRedisCode,
                 serialize(
                     [
                         'timestamp' => $firstMetricValueTimestamp,
@@ -98,7 +89,7 @@ class IndexPageTest extends TestCase
                 )
             );
             Redis::rpush(
-                $this->currencyPair->code.'.'.$metricRedisCode,
+                $this->testCurrencyPair->code.'.'.$metricRedisCode,
                 serialize(
                     [
                         'timestamp' => $secondMetricValueTimestamp,
@@ -112,9 +103,9 @@ class IndexPageTest extends TestCase
             'GET',
             '/get-pair-info',
             [
-                'currency_pair_id'   => $this->currencyPair->id,
-                'currency_1_code'    => $this->currencyPair->currency_1_code,
-                'currency_2_code'    => $this->currencyPair->currency_2_code,
+                'currency_pair_id'   => $this->testCurrencyPair->id,
+                'currency_1_code'    => $this->testCurrencyPair->currency_1_code,
+                'currency_2_code'    => $this->testCurrencyPair->currency_2_code,
                 'exchange_market_id' => $this->exchangeMarket->id,
                 'dateFrom'           => $this->now->toDayDateTimeString(),
                 'dateTo'             => $this->now->addDay()->toDayDateTimeString(),
@@ -234,9 +225,9 @@ class IndexPageTest extends TestCase
                         ],
                     ],
                     [
-                        'code'       => 'macd_1_24',
+                        'code'       => 'macd_1_2',
                         'type'       => 'macd',
-                        'name'       => 'за 1/24 часа',
+                        'name'       => 'за 1/2 часа',
                         'group_name' => 'Macd',
                         'values'     => [
                             [
@@ -252,9 +243,9 @@ class IndexPageTest extends TestCase
                         ],
                     ],
                     [
-                        'code'       => 'macd_1_2',
+                        'code'       => 'macd_1_24',
                         'type'       => 'macd',
-                        'name'       => 'за 1/2 часа',
+                        'name'       => 'за 1/24 часа',
                         'group_name' => 'Macd',
                         'values'     => [
                             [

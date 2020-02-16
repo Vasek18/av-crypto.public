@@ -7,7 +7,6 @@ use App\Traders\AveragePriceTrader;
 use App\Traders\TraderDecision;
 use App\Trading\CurrencyPairRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Redis;
 use Tests\TestCase;
 
 class AveragePriceTraderTest extends TestCase
@@ -17,7 +16,6 @@ class AveragePriceTraderTest extends TestCase
     protected $preserveGlobalState      = false;
     protected $runTestInSeparateProcess = true;
 
-    public $currencyPair;
     public $currentMinuteTimestamp;
 
     public function setUp()
@@ -26,11 +24,7 @@ class AveragePriceTraderTest extends TestCase
 
         $this->seed('TestExchangeMarketsDayRatesSeeder');
 
-        $this->currencyPair = $this->getCurrencyPair();
-        $this->currentMinuteTimestamp = floor(date('U') / SECONDS_IN_MINUTE) * SECONDS_IN_MINUTE;
-
-        // чистим кеш перед каждым тестом
-        Redis::flushall();
+        $this->currentMinuteTimestamp = floor($this->timestampNow / SECONDS_IN_MINUTE) * SECONDS_IN_MINUTE;
     }
 
     public function setAveragesInCache($graphicType, $count = null)
@@ -183,7 +177,7 @@ class AveragePriceTraderTest extends TestCase
 
         for ($i = 0; $i < count($values); $i++) {
             Average::store(
-                $this->currencyPair->code,
+                $this->testCurrencyPair->code,
                 $averageType,
                 1,
                 $this->currentMinuteTimestamp - (SECONDS_IN_MINUTE * $i),
@@ -199,7 +193,7 @@ class AveragePriceTraderTest extends TestCase
      */
     public function isThereIsDownUpPeregibMethodTest()
     {
-        $trader = new AveragePriceTrader($this->currencyPair->code);
+        $trader = new AveragePriceTrader($this->testCurrencyPair->code);
 
         $this->assertTrue($trader->isThereIsDownUpPeregib([3, 2, 1, 2, 3]));
         $this->assertTrue($trader->isThereIsDownUpPeregib([7, 5, 3, 5, 7]));
@@ -218,7 +212,7 @@ class AveragePriceTraderTest extends TestCase
      */
     public function isThereIsUpDownPeregibMethodTest()
     {
-        $trader = new AveragePriceTrader($this->currencyPair->code);
+        $trader = new AveragePriceTrader($this->testCurrencyPair->code);
 
         $this->assertTrue($trader->isThereIsUpDownPeregib([1, 2, 3, 2, 1]));
         $this->assertFalse($trader->isThereIsUpDownPeregib([1, 2, 2, 2, 1]));
@@ -234,13 +228,13 @@ class AveragePriceTraderTest extends TestCase
      */
     public function itMakeBuyDecisionOnDownUpPeregibTest()
     {
-        $trader = new AveragePriceTrader($this->currencyPair->code);
+        $trader = new AveragePriceTrader($this->testCurrencyPair->code);
 
         // закидываем в кеш средние
         $this->setAveragesInCache('buy');
 
         $rate = new CurrencyPairRate(
-            $this->currencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             $this->currentMinuteTimestamp
@@ -259,13 +253,13 @@ class AveragePriceTraderTest extends TestCase
      */
     public function itMakeSellDecisionOnUpDownPeregibTest()
     {
-        $trader = new AveragePriceTrader($this->currencyPair->code);
+        $trader = new AveragePriceTrader($this->testCurrencyPair->code);
 
         // закидываем в кеш средние
         $this->setAveragesInCache('sell');
 
         $rate = new CurrencyPairRate(
-            $this->currencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             $this->currentMinuteTimestamp
@@ -284,14 +278,14 @@ class AveragePriceTraderTest extends TestCase
      */
     public function itDoesntMakeDecisionIfThereIsNotEnoughValues()
     {
-        $trader = new AveragePriceTrader($this->currencyPair->code);
+        $trader = new AveragePriceTrader($this->testCurrencyPair->code);
 
         // закидываем в кеш средние
         // берём столько значений, чтобы их осталось меньше 6 * (5 - 1) + 1 (в методе создаётся 29)
         $this->setAveragesInCache('buy', 23);
 
         $rate = new CurrencyPairRate(
-            $this->currencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             $this->currentMinuteTimestamp
@@ -309,13 +303,13 @@ class AveragePriceTraderTest extends TestCase
      */
     public function itDoesntMakeDecisionOnFlatGraphic()
     {
-        $trader = new AveragePriceTrader($this->currencyPair->code);
+        $trader = new AveragePriceTrader($this->testCurrencyPair->code);
 
         // закидываем в кеш средние
         $this->setAveragesInCache('flat');
 
         $rate = new CurrencyPairRate(
-            $this->currencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             $this->currentMinuteTimestamp
@@ -333,13 +327,13 @@ class AveragePriceTraderTest extends TestCase
      */
     public function itDoesntMakeDecisionOnNearFlatGraphic()
     {
-        $trader = new AveragePriceTrader($this->currencyPair->code);
+        $trader = new AveragePriceTrader($this->testCurrencyPair->code);
 
         // закидываем в кеш средние
         $this->setAveragesInCache('near_flat_buy');
 
         $rate = new CurrencyPairRate(
-            $this->currencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             1,
             $this->currentMinuteTimestamp

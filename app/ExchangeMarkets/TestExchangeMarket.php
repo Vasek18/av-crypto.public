@@ -44,7 +44,7 @@ class TestExchangeMarket extends ExchangeMarket
             'ETH_USD' => 222,
         ];
 
-        $pairsInDb = ExchangeMarketCurrencyPair::where('exchange_market_id', 1)->get(); // todo хардкод биржи
+        $pairsInDb = ExchangeMarketCurrencyPair::where('exchange_market_id', $this->getIDinDB())->get();
 
         /** @var ExchangeMarketCurrencyPair $pair */
         foreach ($pairsInDb as $pair) {
@@ -52,8 +52,8 @@ class TestExchangeMarket extends ExchangeMarket
 
             $rangePercent = 10;
             if ($lastRate) {
-                $buyPrice = $lastRate['buy_price'] * ((100 - ($rangePercent / 2) + rand(0, $rangePercent)) / 100);
-                $sellPrice = $lastRate['sell_price'] * ((100 - ($rangePercent / 2) + rand(0, $rangePercent)) / 100);
+                $buyPrice = $lastRate->buy_price * ((100 - ($rangePercent / 2) + rand(0, $rangePercent)) / 100);
+                $sellPrice = $lastRate->sell_price * ((100 - ($rangePercent / 2) + rand(0, $rangePercent)) / 100);
             } else {
                 $buyPrice = $startAmounts[$pair->currency_1_code.'_'.$pair->currency_2_code];
                 $sellPrice = $startAmounts[$pair->currency_1_code.'_'.$pair->currency_2_code];

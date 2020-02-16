@@ -38,7 +38,7 @@ class IndexController extends Controller
         return view(
             'welcome',
             [
-                'exchange_markets' => $exchangeMarkets, // todo а зачем нам этот массив?
+                'exchange_markets' => $exchangeMarkets,
                 'currency_pairs'   => $currencyPairs,
             ]
         );

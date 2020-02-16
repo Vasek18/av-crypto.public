@@ -18,4 +18,5 @@ return [
     'macds'         => 'Macd',
     'macd_averages' => 'Средние по macd',
     'order_book'    => 'Стакан',
+    'trends'        => 'Тренды',
 ];

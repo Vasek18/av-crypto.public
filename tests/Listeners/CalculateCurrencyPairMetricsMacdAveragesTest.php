@@ -8,7 +8,6 @@ use App\Events\CurrencyPairRateChanged;
 use App\Listeners\CalculateCurrencyPairMetrics;
 use App\Trading\CurrencyPairRate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 class CalculateCurrencyPairMetricsMacdAveragesTest extends TestCase
@@ -17,18 +16,6 @@ class CalculateCurrencyPairMetricsMacdAveragesTest extends TestCase
 
     protected $preserveGlobalState      = false;
     protected $runTestInSeparateProcess = true;
-
-    public $currencyPair;
-
-    public function setUp()
-    {
-        parent::setUp();
-
-        $this->currencyPair = $this->getCurrencyPair();
-
-        // чистим редис перед каждым тестом
-        Redis::flushall();
-    }
 
     /**
      * Проверка, что средние macd считаются правильно через полный запуск слушателя
@@ -43,40 +30,42 @@ class CalculateCurrencyPairMetricsMacdAveragesTest extends TestCase
         $this->seed('TestExchangeMarketsDayRatesSeeder');
 
         // вспомогательная информация
-        $timestampNow = date('U');
-        $rate = CurrencyPairRate::save($this->currencyPair->code, 1, 1, $timestampNow);
+        $rate = CurrencyPairRate::save($this->testCurrencyPair->code, 1, 1, $this->timestampNow);
 
         // запускаем расчёт метрик
         $listener = new CalculateCurrencyPairMetrics();
         $event = new CurrencyPairRateChanged(
-            $this->currencyPair->id,
-            $this->currencyPair->code,
-            $rate,
-            $timestampNow
+            $this->testCurrencyPair->id,
+            $this->testCurrencyPair->code,
+            $rate
         );
         $listener->handle($event);
         $listener->handle($event); // дважды, чтобы было больше одного значения у макд
 
         // посчитаем явно среднее макд только для пары 1-2
         $values = Macd::getForPeriod(
-            $this->currencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             2,
             MINUTES_IN_HOUR
         );
 
+        // расчётный результат
         $valuesSum = array_sum(array_column($values, 'value'));
         $average = $valuesSum / count($values);
 
         $macdAverageValue = MacdAverage::getLast(
-            $this->currencyPair->code,
+            $this->testCurrencyPair->code,
             1,
             2,
             1
         )['value'];
 
         $this->assertEquals($average, $macdAverageValue);
-        $this->assertGreaterThan(0, $macdAverageValue);
+        $this->assertGreaterThan(
+            0,
+            $macdAverageValue
+        ); // проверка, что сидер до сих пор позволяет создавать ненулевые средние
     }
 
     /**
@@ -86,13 +75,13 @@ class CalculateCurrencyPairMetricsMacdAveragesTest extends TestCase
     public function periodGetterTest()
     {
         $testValuesCount = 10;
-        $oldestMetricTimestamp = date('U') - ($testValuesCount - 1) * SECONDS_IN_MINUTE;
+        $oldestMetricTimestamp = $this->timestampNow - ($testValuesCount - 1) * SECONDS_IN_MINUTE;
 
         // заполняем
         for ($i = 0; $i < $testValuesCount; $i++) {
             $timestamp = $oldestMetricTimestamp + $i * SECONDS_IN_MINUTE;
             MacdAverage::store(
-                $this->currencyPair->code,
+                $this->testCurrencyPair->code,
                 1,
                 2,
                 1,
@@ -101,6 +90,6 @@ class CalculateCurrencyPairMetricsMacdAveragesTest extends TestCase
             );
         }
 
-        $this->assertEquals(4, count(MacdAverage::getForPeriod($this->currencyPair->code, 1, 2, 1, 4)));
+        $this->assertEquals(4, count(MacdAverage::getForPeriod($this->testCurrencyPair->code, 1, 2, 1, 4)));
     }
 }

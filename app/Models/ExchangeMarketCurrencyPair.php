@@ -23,13 +23,6 @@ class ExchangeMarketCurrencyPair extends Model
     ];
     public    $timestamps = false;
 
-    // виртуальные аттрибуты
-    public function getCodeAttribute()
-    {
-        // todo нужно ли тут кеширование? Этот метод много где по сайту вызывается
-        return $this->exchange_market->code.'.'.$this->currency_1_code.'.'.$this->currency_2_code;
-    }
-
     public static function getCodeByID($id)
     {
         $code = Cache::remember(
@@ -43,6 +36,14 @@ class ExchangeMarketCurrencyPair extends Model
         );
 
         return $code;
+    }
+
+    // todo можно объявить ассесор https://laravel.com/docs/5.7/eloquent-serialization#appending-values-to-json и не мучаться с передачей параметра на фронт
+    // виртуальные аттрибуты
+    public function getCodeAttribute()
+    {
+        // todo нужно ли тут кеширование? Этот метод много где по сайту вызывается
+        return $this->exchange_market->code.'.'.$this->currency_1_code.'.'.$this->currency_2_code;
     }
 
     // связи с другими моделями

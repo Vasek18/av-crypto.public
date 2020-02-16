@@ -4,10 +4,15 @@ namespace App\CurrencyPairsMetrics;
 
 class Macd extends AbstractCurrencyPairsMetric implements Calculatable
 {
-    // высчитываем только для цены покупки
-    public static function calculate($currencyPairID, $currencyPairCode, $currentTimestamp = '')
+    private static function getCode($fastAvgInterval, $slowAvgInterval)
     {
-        foreach (static::getAllAveragePairsPeriods() as list($hourIntervalFast, $hourIntervalSlow)) {
+        return 'macd_'.$fastAvgInterval.'_'.$slowAvgInterval;
+    }
+
+    // высчитываем только для цены покупки
+    public static function calculate($currencyPairCode, $currentTimestamp = '')
+    {
+        foreach (static::getAllAveragePeriodsPairs() as list($hourIntervalFast, $hourIntervalSlow)) {
             $fastAverageValue = Average::getLast(
                 $currencyPairCode,
                 'buy',
@@ -28,7 +33,7 @@ class Macd extends AbstractCurrencyPairsMetric implements Calculatable
 
     public static function store($currencyPairCode, int $fastAvgInterval, int $slowAvgInterval, int $timestamp, $value)
     {
-        static::save($currencyPairCode, 'macd_'.$fastAvgInterval.'_'.$slowAvgInterval, $timestamp, $value);
+        static::save($currencyPairCode, static::getCode($fastAvgInterval, $slowAvgInterval), $timestamp, $value);
     }
 
     public static function getForPeriod(
@@ -40,7 +45,7 @@ class Macd extends AbstractCurrencyPairsMetric implements Calculatable
     ) {
         return parent::getFromDB(
             $currencyPairCode,
-            'macd_'.$fastAvgInterval.'_'.$slowAvgInterval,
+            static::getCode($fastAvgInterval, $slowAvgInterval),
             $minutes,
             $countFromTimestamp
         );
@@ -53,13 +58,13 @@ class Macd extends AbstractCurrencyPairsMetric implements Calculatable
         return !empty($values) ? $values[0] : null;
     }
 
-    public static function getAllAveragePairsPeriods()
+    public static function getAllAveragePeriodsPairs()
     {
         $periods = [];
         $hourIntervals = Average::$hourIntervals;
 
         for ($i = 0; $i < count($hourIntervals) - 1; $i++) { // идём по всем диапазонам средних, кроме последнего
-            for ($j = count($hourIntervals) - 1; $j > $i; $j--) { // по всем диапазонам выше, чем в первом цикле
+            for ($j = $i + 1; $j <= count($hourIntervals) - 1; $j++) { // по всем диапазонам выше, чем в первом цикле
                 $periods[] = [$hourIntervals[$i], $hourIntervals[$j]];
             }
         }
@@ -69,14 +74,11 @@ class Macd extends AbstractCurrencyPairsMetric implements Calculatable
 
     public static function clearOlderThan($currencyPairCode, $timestamp)
     {
-        $timestampNow = date('U');
-        $indexOtstup = ($timestampNow - $timestamp) / SECONDS_IN_MINUTE;
-
-        foreach (static::getAllAveragePairsPeriods() as list($hourIntervalFast, $hourIntervalSlow)) {
-            static::trimByIndexes(
+        foreach (static::getAllAveragePeriodsPairs() as list($hourIntervalFast, $hourIntervalSlow)) {
+            static::clearValuesOlderThan(
                 $currencyPairCode,
-                'macd_'.$hourIntervalFast.'_'.$hourIntervalSlow,
-                -$indexOtstup
+                static::getCode($hourIntervalFast, $hourIntervalSlow),
+                $timestamp
             );
         }
     }

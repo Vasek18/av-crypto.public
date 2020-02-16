@@ -27,12 +27,10 @@ class CheckOrdersTest extends TestCase
         $this->userAccount = factory(ExchangeMarketUserAccount::class)->create();
         $this->exchangeMarket = ExchangeMarket::where('code', 'test')->first();
 
-        $currencyPair = $this->getCurrencyPair();
-
         $this->basket = Basket::create(
             [
                 'start_sum'              => 1,
-                'currency_pair_id'       => $currencyPair->id,
+                'currency_pair_id'       => $this->testCurrencyPair->id,
                 'account_id'             => $this->userAccount->id,
                 'currency_1_last_amount' => null,
                 'currency_2_last_amount' => null,

@@ -75,7 +75,7 @@ trait GetInfoForAnalysisGraph
     {
         $metrics = [];
 
-        foreach (Macd::getAllAveragePairsPeriods() as list($hourIntervalFastAvg, $hourIntervalSlowAvg)) {
+        foreach (Macd::getAllAveragePeriodsPairs() as list($hourIntervalFastAvg, $hourIntervalSlowAvg)) {
             $values = Macd::getForPeriod(
                 $currencyPairCode,
                 $hourIntervalFastAvg,
@@ -105,7 +105,7 @@ trait GetInfoForAnalysisGraph
     {
         $metrics = [];
 
-        foreach (Macd::getAllAveragePairsPeriods() as list($hourIntervalFastAvg, $hourIntervalSlowAvg)) {
+        foreach (Macd::getAllAveragePeriodsPairs() as list($hourIntervalFastAvg, $hourIntervalSlowAvg)) {
             foreach (MacdAverage::$hourIntervals as $hourInterval) {
 
                 $values = MacdAverage::getForPeriod(

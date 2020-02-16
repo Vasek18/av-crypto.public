@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\CurrencyPairTrend;
 use App\Models\ExchangeMarket;
-use App\Models\ExchangeMarketCurrencyPair;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Redis;
@@ -25,9 +23,6 @@ class PastAnalysisTest extends TestCase
     {
         parent::setUp();
 
-        // чистим редис перед каждым тестом
-        Redis::flushall();
-
         // логинимся под админа
         $this->actingAs(factory(\App\Models\User::class)->create(['group_id' => 1]));
 
@@ -36,11 +31,6 @@ class PastAnalysisTest extends TestCase
 
         // параметры для запроса
         $this->exchangeMarket = ExchangeMarket::where('code', 'test')->first();
-        $this->currencyPair = ExchangeMarketCurrencyPair
-            ::where('exchange_market_id', $this->exchangeMarket->id)
-            ->where('currency_1_code', 'BTC')
-            ->where('currency_2_code', 'USD')
-            ->first();
 
         $this->now = Carbon::today();
     }
@@ -52,9 +42,9 @@ class PastAnalysisTest extends TestCase
             'GET',
             'oko/past-analysis/get-pair-info',
             [
-                'currency_pair_id'   => $this->currencyPair->id,
-                'currency_1_code'    => $this->currencyPair->currency_1_code,
-                'currency_2_code'    => $this->currencyPair->currency_2_code,
+                'currency_pair_id'   => $this->testCurrencyPair->id,
+                'currency_1_code'    => $this->testCurrencyPair->currency_1_code,
+                'currency_2_code'    => $this->testCurrencyPair->currency_2_code,
                 'exchange_market_id' => $this->exchangeMarket->id,
                 'dateFrom'           => $this->now->toDayDateTimeString(),
                 'dateTo'             => $this->now->addDay()->toDayDateTimeString(),
@@ -67,87 +57,6 @@ class PastAnalysisTest extends TestCase
         $this->assertCount($neededRatesCount, $responseArray['rates']);
     }
 
-    /** @test */
-    public function itReturnsTrendsRelatedToTimePeriod()
-    {
-        $timestampNow = $this->now->timestamp;
-
-        // создаём тестовые записи о трендах
-        CurrencyPairTrend::create( // тренд, который начинается раньше периода, заканчивается после начала
-            [
-                'currency_pair_id' => $this->currencyPair->id,
-                'type'             => 'test1',
-                'lt_x'             => $timestampNow - MINUTES_IN_HOUR * SECONDS_IN_MINUTE,
-                'lt_y'             => 1,
-                'lb_x'             => $timestampNow - MINUTES_IN_HOUR * SECONDS_IN_MINUTE,
-                'lb_y'             => 1,
-                'rt_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE,
-                'rt_y'             => 1,
-                'rb_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE,
-                'rb_y'             => 1,
-            ]
-        );
-        CurrencyPairTrend::create( // тренд, который заканчивается до начала
-            [
-                'currency_pair_id' => $this->currencyPair->id,
-                'type'             => 'test2',
-                'lt_x'             => $timestampNow - MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 2,
-                'lt_y'             => 1,
-                'lb_x'             => $timestampNow - MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 2,
-                'lb_y'             => 1,
-                'rt_x'             => $timestampNow - MINUTES_IN_HOUR * SECONDS_IN_MINUTE,
-                'rt_y'             => 1,
-                'rb_x'             => $timestampNow - MINUTES_IN_HOUR * SECONDS_IN_MINUTE,
-                'rb_y'             => 1,
-            ]
-        );
-        CurrencyPairTrend::create( // тренд, который начинается во время периода, заканчивается после конца
-            [
-                'currency_pair_id' => $this->currencyPair->id,
-                'type'             => 'test3',
-                'lt_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 23,
-                'lt_y'             => 1,
-                'lb_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 23,
-                'lb_y'             => 1,
-                'rt_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 25,
-                'rt_y'             => 1,
-                'rb_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 25,
-                'rb_y'             => 1,
-            ]
-        );
-        CurrencyPairTrend::create( // тренд, который начинается после периода
-            [
-                'currency_pair_id' => $this->currencyPair->id,
-                'type'             => 'test4',
-                'lt_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 25,
-                'lt_y'             => 1,
-                'lb_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 25,
-                'lb_y'             => 1,
-                'rt_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 27,
-                'rt_y'             => 1,
-                'rb_x'             => $timestampNow + MINUTES_IN_HOUR * SECONDS_IN_MINUTE * 27,
-                'rb_y'             => 1,
-            ]
-        );
-
-        $response = $this->json(
-            'GET',
-            'oko/past-analysis/get-pair-info',
-            [
-                'currency_pair_id'   => $this->currencyPair->id,
-                'currency_1_code'    => $this->currencyPair->currency_1_code,
-                'currency_2_code'    => $this->currencyPair->currency_2_code,
-                'exchange_market_id' => $this->exchangeMarket->id,
-                'dateFrom'           => $this->now->toDayDateTimeString(),
-                'dateTo'             => $this->now->addDay()->toDayDateTimeString(),
-            ]
-        );
-
-        // проверяем, что возращаются нужные тренды
-        $response->assertJson(['trends' => [['type' => 'test1'], ['type' => 'test3']]]);
-        $responseArray = $response->decodeResponseJson();
-        $this->assertCount(2, $responseArray['trends']); // трендов должно быть 2
-    }
 
     /** @test */
     public function itReturnsMetricsRelatedToTimePeriod()
@@ -175,7 +84,7 @@ class PastAnalysisTest extends TestCase
         foreach ($metricRedisCodes as $c => $metricRedisCode) {
             // забьём пару значений
             Redis::rpush(
-                $this->currencyPair->code.'.'.$metricRedisCode,
+                $this->testCurrencyPair->code.'.'.$metricRedisCode,
                 serialize(
                     [
                         'timestamp' => $firstMetricValueTimestamp,
@@ -184,7 +93,7 @@ class PastAnalysisTest extends TestCase
                 )
             );
             Redis::rpush(
-                $this->currencyPair->code.'.'.$metricRedisCode,
+                $this->testCurrencyPair->code.'.'.$metricRedisCode,
                 serialize(
                     [
                         'timestamp' => $secondMetricValueTimestamp,
@@ -198,9 +107,9 @@ class PastAnalysisTest extends TestCase
             'GET',
             'oko/past-analysis/get-pair-info',
             [
-                'currency_pair_id'   => $this->currencyPair->id,
-                'currency_1_code'    => $this->currencyPair->currency_1_code,
-                'currency_2_code'    => $this->currencyPair->currency_2_code,
+                'currency_pair_id'   => $this->testCurrencyPair->id,
+                'currency_1_code'    => $this->testCurrencyPair->currency_1_code,
+                'currency_2_code'    => $this->testCurrencyPair->currency_2_code,
                 'exchange_market_id' => $this->exchangeMarket->id,
                 'dateFrom'           => $this->now->toDayDateTimeString(),
                 'dateTo'             => $this->now->addDay()->toDayDateTimeString(),
@@ -320,9 +229,9 @@ class PastAnalysisTest extends TestCase
                         ],
                     ],
                     [
-                        'code'       => 'macd_1_24',
+                        'code'       => 'macd_1_2',
                         'type'       => 'macd',
-                        'name'       => 'за 1/24 часа',
+                        'name'       => 'за 1/2 часа',
                         'group_name' => 'Macd',
                         'values'     => [
                             [
@@ -338,9 +247,9 @@ class PastAnalysisTest extends TestCase
                         ],
                     ],
                     [
-                        'code'       => 'macd_1_2',
+                        'code'       => 'macd_1_24',
                         'type'       => 'macd',
-                        'name'       => 'за 1/2 часа',
+                        'name'       => 'за 1/24 часа',
                         'group_name' => 'Macd',
                         'values'     => [
                             [

@@ -29,8 +29,8 @@ class TestExchangeMarketsDayRatesTrendUpSeeder extends Seeder
             ->where('currency_2_code', $currency2Code)
             ->first();
 
-        $extremumsSideWidth = 40; // потому что сейчас считаем экстркмумы на получасовом периоде
-        $peregibsCount = 5;
+        $extremumsSideWidth = 70; // чтобы можно было проверять часовые тренды
+        $peregibsCount = 5; // 5*40 получается на 200 минут
         $price = 1000;
         $timestamp = Carbon::today()->startOfDay()->timestamp;
         $listener = new CalculateCurrencyPairMetrics();
@@ -40,18 +40,23 @@ class TestExchangeMarketsDayRatesTrendUpSeeder extends Seeder
             } else { // цена вниз, но чуть медленнее
                 $addend = -5;
             }
-            for ($j = 0; $j < $extremumsSideWidth; $j++) {
+            for ($j = 0; $j < $extremumsSideWidth; $j++) { // todo тут наверное нужно <= поставить
                 $price += $addend;
+                $randomPrice = rand($price - 10, $price + 10);
 
                 // набиваем тестовые котировки
-                $rate = CurrencyPairRate::save($currencyPair->code, $price, $price, $timestamp);
+                $rate = CurrencyPairRate::save(
+                    $currencyPair->code,
+                    $randomPrice,
+                    $randomPrice,
+                    $timestamp + ($i * $extremumsSideWidth + $j) * SECONDS_IN_MINUTE
+                );
 
                 // запускаем расчёт метрик
                 $event = new CurrencyPairRateChanged(
                     $currencyPair->id,
                     $currencyPair->code,
-                    $rate,
-                    $timestamp
+                    $rate
                 );
                 $listener->handle($event);
 
